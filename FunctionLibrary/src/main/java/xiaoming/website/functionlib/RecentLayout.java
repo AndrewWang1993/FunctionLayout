@@ -222,9 +222,7 @@ public class RecentLayout extends HorizontalScrollView implements View.OnClickLi
 
     @Override
     public void onClick(View v) {
-
         if (v.getTag() == TAG_ADD) {
-
             boolean canAdd = true;
             for (int i : mIndex) {
                 ArrayList<Object> itemBean = mData.get(i);
@@ -234,10 +232,7 @@ public class RecentLayout extends HorizontalScrollView implements View.OnClickLi
                 Toast.makeText(mContext, "所有功能都已添加", Toast.LENGTH_SHORT).show();
                 return;
             }
-
             isChooseMode = true;
-
-
             initChildView(true, true);
         } else {
             int index = (int) v.getTag();
@@ -282,11 +277,15 @@ public class RecentLayout extends HorizontalScrollView implements View.OnClickLi
     }
 
     private void addFunction() {
-        for (int i : mIndex) {
+        ArrayList<Integer> copyIndex = new ArrayList<>(mIndex);
+        for (int i : copyIndex) {
             ArrayList<Object> itemBean = mData.get(i);
             if ((int) itemBean.get(POS_MARK) == MARK_ADD) {
                 itemBean.set(POS_MARK, MARK_INVISIBLE);
                 itemBean.set(POS_ENABLE, true);
+                int index = mIndex.indexOf(i);
+                mIndex.remove(index);
+                mIndex.add(0, i);
                 functionCount++;
             }
         }
