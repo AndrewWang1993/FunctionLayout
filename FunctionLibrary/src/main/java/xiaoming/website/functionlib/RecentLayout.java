@@ -1,6 +1,8 @@
 package xiaoming.website.functionlib;
 
 
+import android.animation.ObjectAnimator;
+import android.animation.ValueAnimator;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
@@ -9,6 +11,7 @@ import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
+import android.view.animation.AccelerateDecelerateInterpolator;
 import android.widget.FrameLayout;
 import android.widget.HorizontalScrollView;
 import android.widget.ImageView;
@@ -16,6 +19,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.HashMap;
 
@@ -26,18 +30,31 @@ public class RecentLayout extends HorizontalScrollView implements View.OnClickLi
 
     final private Context mContext;
 
+
     private HashMap<Integer, ArrayList<Object>> mData;
     private ArrayList<Integer> mIndex;
     private LinearLayout mLinearLayout;
 
-    private int functionCount = 5;
-    private int itemDimension;
+    private int mItemDimension;
+    private int mViewDimension;
+    private int mMarkDimension;
+
+    private int mMargin;
+    private int mMarginLeft;
+    private int mMarginRight;
+
+    private int mTitleBottonMargin;
+
+
+    private int mFontSize;
+
     private int mBackGroundColor = Color.parseColor("#bb5894c3");
 
-    final private int MARK_INVISIBLE = 1;
-    final private int MARK_ADD = 1 << 1;
-    final private int MARK_DELETE = 1 << 2;
+    final private String MARK_INVISIBLE = "MARK_INVISIBLE";
+    final private String MARK_ADD = "MARK_ADD";
+    final private String MARK_DELETE = "MARK_DELETE";
 
+    final private int FIX_FUNCTION_COUNT = 5;
     final private String TAG_ADD = "+";
     final private int POS_TITLE = 0;
     final private int POS_DRAWABLE = 1;
@@ -45,8 +62,8 @@ public class RecentLayout extends HorizontalScrollView implements View.OnClickLi
     final private int POS_INTENT = 3;
     final private int POS_ENABLE = 4;
 
-    private boolean isChooseMode = false;
-    private boolean isDeleteMode = false;
+    private boolean mIsChooseMode = false;
+    private boolean mIsDeleteMode = false;
 
 
     public RecentLayout(Context context) {
@@ -63,21 +80,54 @@ public class RecentLayout extends HorizontalScrollView implements View.OnClickLi
         initView();
     }
 
-    public void setData(ArrayList<ItemBean> data) {
-        initData(data);
+    public HashMap<Integer, ArrayList<Object>> getData() {
+        return mData;
+    }
+
+    public ArrayList<Integer> getSortIndex() {
+        return mIndex;
+    }
+
+    public void setData(HashMap<Integer, ArrayList<Object>> data, ArrayList<Integer> index) {
+        if (data == null && index != null) {
+            return;
+        }
+        mData = data;
+        mIndex = index;
+        initChildView(false, true);
+    }
+
+    public void setRawData(ArrayList<ItemBean> data) {
+        initRawData(data);
+    }
+
+    public int getBackGroundColor() {
+        return mBackGroundColor;
+    }
+
+    public void setBackGroundColor(int backGroundColor) {
+        mBackGroundColor = backGroundColor;
+        invalidate();
     }
 
 
     private void initView() {
         setWillNotDraw(false);
         setDescendantFocusability(FOCUS_AFTER_DESCENDANTS);
-        itemDimension = Util.getScreenWidth(mContext) / functionCount;
+        mItemDimension = Util.getScreenWidth(mContext) / FIX_FUNCTION_COUNT;
+        mMarkDimension = mItemDimension / 4;
+        mViewDimension = mMarkDimension * 3;
+        mMargin = mItemDimension / 6;
+        mMarginLeft = mItemDimension / 4;
+        mMarginRight = mMarginLeft / 4;
+        mFontSize = 18;
+        mTitleBottonMargin = Util.dp2px(mContext, 5);
 
         ViewTreeObserver viewTreeObserver = getViewTreeObserver();
         viewTreeObserver.addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
             @Override
             public void onGlobalLayout() {
-                itemDimension = Util.getScreenWidth(mContext) / functionCount;
+                mItemDimension = Util.getScreenWidth(mContext) / FIX_FUNCTION_COUNT;
                 getViewTreeObserver().removeOnGlobalLayoutListener(this);
             }
         });
@@ -92,14 +142,13 @@ public class RecentLayout extends HorizontalScrollView implements View.OnClickLi
 
         mLinearLayout.removeAllViews();
 
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(itemDimension, itemDimension);
-        lp.setMargins(Util.dp2px(mContext, 20), 0, Util.dp2px(mContext, 5), 0);
-        lp.height = lp.height + itemDimension / 2;
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(mItemDimension, mItemDimension);
+        lp.setMargins(mMarginLeft, 0, mMarginRight, 0);
+        lp.height = lp.height + mMargin + mMargin;
         for (int i : mIndex) {
             String title = (String) mData.get(i).get(POS_TITLE);
-            int drawableRes = (int) mData.get(i).get(POS_DRAWABLE);
-            int markFlag = (int) mData.get(i).get(POS_MARK);
-            Intent intent = (Intent) mData.get(i).get(POS_INTENT);
+            int drawableRes = Integer.valueOf((String) mData.get(i).get(POS_DRAWABLE));
+            String markFlag = (String) mData.get(i).get(POS_MARK);
             boolean isEnable = (boolean) mData.get(i).get(POS_ENABLE);
 
             FrameLayout f = new FrameLayout(mContext);
@@ -111,41 +160,43 @@ public class RecentLayout extends HorizontalScrollView implements View.OnClickLi
                 if (showHide && isEnable) {
                     continue;
                 }
-
                 addImageView(f, drawableRes, false);
-
                 addTextView(f, title);
-
                 addMarkView(f, markFlag);
-
                 mLinearLayout.addView(f, lp);
             }
         }
 
         if (!showHide && showAdd) {
             FrameLayout f = new FrameLayout(mContext);
-            addImageView(f, R.drawable.mark_add, true);
+            addImageView(f, R.drawable.icon_add, true);
             mLinearLayout.addView(f, lp);
         }
         invalidate();
     }
 
-    private void addMarkView(FrameLayout f, int markFlag) {
+    private void addMarkView(FrameLayout f, String markFlag) {
         ImageView markIv = new ImageView(mContext);
-        LayoutParams lpMarkView = new LayoutParams(itemDimension / 4, itemDimension / 4);
-        if (markFlag == MARK_DELETE || isDeleteMode) {
-            markIv.setImageResource(R.drawable.mark_delet);
+        LayoutParams lpMarkView = new LayoutParams(mMarkDimension, mMarkDimension);
+        if (markFlag == MARK_DELETE || mIsDeleteMode) {
+            new Util.BitmapWorkerTask(markIv, mMarkDimension, mMarkDimension).execute(R.drawable.mark_delet);
             lpMarkView.gravity = Gravity.TOP | Gravity.END;
-            lpMarkView.topMargin = itemDimension / 6;
-            lpMarkView.rightMargin = itemDimension / 6;
+            lpMarkView.topMargin = mMargin;
+            lpMarkView.rightMargin = mMargin;
+            ObjectAnimator objectAnimator = ObjectAnimator.ofFloat(markIv, "rotation", -15F, 15F);
+            objectAnimator.setDuration(80);
+            objectAnimator.setInterpolator(new AccelerateDecelerateInterpolator());
+            objectAnimator.setRepeatCount(-1);
+            objectAnimator.setRepeatMode(ValueAnimator.REVERSE);
+            objectAnimator.start();
             markIv.setVisibility(VISIBLE);
         } else if (markFlag == MARK_INVISIBLE) {
             markIv.setVisibility(GONE);
         } else if (markFlag == MARK_ADD) {
-            markIv.setImageResource(R.drawable.mark_select);
+            new Util.BitmapWorkerTask(markIv, mMarkDimension, mMarkDimension).execute(R.drawable.mark_select);
             lpMarkView.gravity = Gravity.BOTTOM | Gravity.END;
-            lpMarkView.bottomMargin = itemDimension / 2;
-            lpMarkView.rightMargin = itemDimension / 6;
+            lpMarkView.bottomMargin = mMarkDimension + mTitleBottonMargin;
+            lpMarkView.rightMargin = mMargin;
             markIv.setVisibility(VISIBLE);
         }
         f.addView(markIv, lpMarkView);
@@ -156,26 +207,25 @@ public class RecentLayout extends HorizontalScrollView implements View.OnClickLi
             f.setTag(TAG_ADD);
             f.setOnClickListener(this);
         }
-        ImageView iv = new ImageView(mContext);      //TODO:  bitmap optimis
-        iv.setImageResource(drawableRes);
-        iv.setMinimumWidth(itemDimension);
-        iv.setMinimumHeight(itemDimension);
-        LayoutParams lpImageView = new LayoutParams(itemDimension, itemDimension);
-        lpImageView.gravity = Gravity.TOP;
-        lpImageView.topMargin = Util.dp2px(mContext, 5);
-        lpImageView.bottomMargin = Util.dp2px(mContext, 5);
+        ImageView iv = new ImageView(mContext);
+        new Util.BitmapWorkerTask(iv, mViewDimension, mViewDimension).execute(drawableRes);
+        iv.setMinimumWidth(mItemDimension);
+        iv.setMinimumHeight(mItemDimension);
+        LayoutParams lpImageView = new LayoutParams(mViewDimension, mViewDimension);
+        lpImageView.gravity = Gravity.TOP | Gravity.CENTER_HORIZONTAL;
+        lpImageView.topMargin = mMargin;
         f.addView(iv, lpImageView);
     }
 
     private void addTextView(FrameLayout f, String title) {
         TextView tv = new TextView(mContext);
         tv.setText(title);
-        tv.setTextSize(20);
+        tv.setTextSize(mFontSize);
         tv.setTextColor(Color.WHITE);
         tv.setGravity(Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
-        LayoutParams lpTextView = new LayoutParams(itemDimension, itemDimension);
+        LayoutParams lpTextView = new LayoutParams(mItemDimension, mItemDimension);
         lpTextView.gravity = Gravity.BOTTOM;
-        lpTextView.bottomMargin = Util.dp2px(mContext, 5);
+        lpTextView.bottomMargin = mTitleBottonMargin;
         f.addView(tv, lpTextView);
     }
 
@@ -189,7 +239,7 @@ public class RecentLayout extends HorizontalScrollView implements View.OnClickLi
 
         mLinearLayout = new LinearLayout(mContext);
         ViewGroup.LayoutParams layoutParamsV = new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        mLinearLayout.setGravity(Gravity.START);
+        mLinearLayout.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
         mLinearLayout.setBackgroundColor(mBackGroundColor);
         mLinearLayout.setMinimumWidth(Util.getScreenWidth(mContext));
         mLinearLayout.setOrientation(LinearLayout.HORIZONTAL);
@@ -197,22 +247,20 @@ public class RecentLayout extends HorizontalScrollView implements View.OnClickLi
         addView(mLinearLayout, layoutParamsV);
     }
 
-    private void initData(ArrayList<ItemBean> data) {
+    private void initRawData(ArrayList<ItemBean> data) {
         if (data == null) {
             return;
         }
         mData = new HashMap<>();
         mIndex = new ArrayList<>();
-        functionCount = 0;
         int i = 0;
         for (ItemBean itemBean : data) {
             ArrayList<Object> tmpArrayList = new ArrayList<>();
             tmpArrayList.add(itemBean.getTitle());
-            tmpArrayList.add(itemBean.getDrawableRes());
-            tmpArrayList.add(MARK_INVISIBLE);
-            tmpArrayList.add(itemBean.getIntent());
+            tmpArrayList.add(String.valueOf(itemBean.getDrawableRes()));
+            tmpArrayList.add(String.valueOf(MARK_INVISIBLE));
+            tmpArrayList.add(itemBean.getIntent().toUri(0));
             tmpArrayList.add(itemBean.isEnable);
-            functionCount += itemBean.isEnable ? 1 : 0;
             mData.put(i, tmpArrayList);
             mIndex.add(i++);
         }
@@ -232,36 +280,44 @@ public class RecentLayout extends HorizontalScrollView implements View.OnClickLi
                 Toast.makeText(mContext, "所有功能都已添加", Toast.LENGTH_SHORT).show();
                 return;
             }
-            isChooseMode = true;
+            mIsChooseMode = true;
             initChildView(true, true);
         } else {
             int index = (int) v.getTag();
-            if (isChooseMode) {
-                if ((int) mData.get(index).get(POS_MARK) == MARK_INVISIBLE) {
-                    mData.get(index).set(POS_MARK, MARK_ADD);
+            if (mIsChooseMode) {
+                if ((mData.get(index).get(POS_MARK)).equals(MARK_INVISIBLE)) {
+                    mData.get(index).set(POS_MARK, String.valueOf(MARK_ADD));
                 } else {
-                    mData.get(index).set(POS_MARK, MARK_INVISIBLE);
+                    mData.get(index).set(POS_MARK, String.valueOf(MARK_INVISIBLE));
                 }
                 initChildView(true, false);
-            } else if (isDeleteMode) {
-                ArrayList<Object> itemBean = mData.get(index);
-                itemBean.set(POS_ENABLE, false);
-                itemBean.set(POS_MARK, MARK_INVISIBLE);
-                functionCount--;
+            } else if (mIsDeleteMode) {
+                if (isAllItemHide()) {
+                    Toast.makeText(mContext, "最少保留一个功能", Toast.LENGTH_SHORT).show();
+                } else {
+                    ArrayList<Object> itemBean = mData.get(index);
+                    itemBean.set(POS_ENABLE, false);
+                    itemBean.set(POS_MARK, MARK_INVISIBLE);
+                }
                 initChildView(false, false);
             } else {
-                mContext.startActivity((Intent) mData.get(index).get(POS_INTENT));
+                try {
+                    Intent intent = Intent.parseUri((String) mData.get(index).get(POS_INTENT), 0);
+                    mContext.startActivity(intent);
+                } catch (URISyntaxException e) {
+                    e.printStackTrace();
+                }
             }
         }
     }
 
     public void exitModify() {
-        if (isChooseMode) {
-            isChooseMode = false;
+        if (mIsChooseMode) {
+            mIsChooseMode = false;
             addFunction();
         }
-        if (isDeleteMode) {
-            isDeleteMode = false;
+        if (mIsDeleteMode) {
+            mIsDeleteMode = false;
             delFunction();
         }
         initChildView(false, true);
@@ -270,7 +326,7 @@ public class RecentLayout extends HorizontalScrollView implements View.OnClickLi
     private void delFunction() {
         for (int i : mIndex) {
             ArrayList<Object> itemBean = mData.get(i);
-            if ((int) itemBean.get(POS_MARK) == MARK_DELETE) {
+            if (itemBean.get(POS_MARK).equals(MARK_DELETE)) {
                 itemBean.set(POS_MARK, MARK_INVISIBLE);
             }
         }
@@ -280,21 +336,30 @@ public class RecentLayout extends HorizontalScrollView implements View.OnClickLi
         ArrayList<Integer> copyIndex = new ArrayList<>(mIndex);
         for (int i : copyIndex) {
             ArrayList<Object> itemBean = mData.get(i);
-            if ((int) itemBean.get(POS_MARK) == MARK_ADD) {
+            if (itemBean.get(POS_MARK).equals(MARK_ADD)) {
                 itemBean.set(POS_MARK, MARK_INVISIBLE);
                 itemBean.set(POS_ENABLE, true);
                 int index = mIndex.indexOf(i);
                 mIndex.remove(index);
                 mIndex.add(0, i);
-                functionCount++;
             }
         }
     }
 
+    private boolean isAllItemHide() {
+        int result = 0;
+        for (int i : mIndex) {
+            ArrayList<Object> itemBean = mData.get(i);
+            result += (boolean) itemBean.get(POS_ENABLE) ? 1 : 0;
+        }
+        return result <= 1;
+    }
+
+
     @Override
     public boolean onLongClick(View v) {
-        if (!isDeleteMode) {
-            isDeleteMode = true;
+        if (!mIsDeleteMode && !mIsChooseMode) {
+            mIsDeleteMode = true;
             for (int i : mIndex) {
                 mData.get(i).set(POS_MARK, MARK_DELETE);
             }
@@ -302,5 +367,14 @@ public class RecentLayout extends HorizontalScrollView implements View.OnClickLi
             return true;
         }
         return false;
+    }
+
+    public int getmFontSize() {
+        return mFontSize;
+    }
+
+    public void setmFontSize(int mFontSize) {
+        this.mFontSize = mFontSize;
+        invalidate();
     }
 }
