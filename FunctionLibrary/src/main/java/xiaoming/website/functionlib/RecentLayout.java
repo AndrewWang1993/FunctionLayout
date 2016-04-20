@@ -178,8 +178,9 @@ public class RecentLayout extends HorizontalScrollView implements View.OnClickLi
     private void addMarkView(FrameLayout f, String markFlag) {
         ImageView markIv = new ImageView(mContext);
         LayoutParams lpMarkView = new LayoutParams(mMarkDimension, mMarkDimension);
-        if (markFlag == MARK_DELETE || mIsDeleteMode) {
-            new Util.BitmapWorkerTask(markIv, mMarkDimension, mMarkDimension).execute(R.drawable.mark_delet);
+        if (markFlag.equals(MARK_DELETE) || mIsDeleteMode) {
+//            new Util.BitmapWorkerTask(markIv, mMarkDimension, mMarkDimension).execute(R.drawable.mark_delet);   // will blink drawable
+            markIv.setImageDrawable(getResources().getDrawable(R.drawable.mark_delet));   //  will not refresh drawable will cause memory leak
             lpMarkView.gravity = Gravity.TOP | Gravity.END;
             lpMarkView.topMargin = mMargin;
             lpMarkView.rightMargin = mMargin;
@@ -190,10 +191,11 @@ public class RecentLayout extends HorizontalScrollView implements View.OnClickLi
             objectAnimator.setRepeatMode(ValueAnimator.REVERSE);
             objectAnimator.start();
             markIv.setVisibility(VISIBLE);
-        } else if (markFlag == MARK_INVISIBLE) {
+        } else if (markFlag.equals(MARK_INVISIBLE)) {
             markIv.setVisibility(GONE);
-        } else if (markFlag == MARK_ADD) {
-            new Util.BitmapWorkerTask(markIv, mMarkDimension, mMarkDimension).execute(R.drawable.mark_select);
+        } else if (markFlag.equals(MARK_ADD)) {
+//            new Util.BitmapWorkerTask(markIv, mMarkDimension, mMarkDimension).execute(R.drawable.mark_select);  // will blink drawable
+            markIv.setImageDrawable(getResources().getDrawable(R.drawable.mark_select));     //  will not refresh drawable will cause memory leak
             lpMarkView.gravity = Gravity.BOTTOM | Gravity.END;
             lpMarkView.bottomMargin = mMarkDimension + mTitleBottonMargin;
             lpMarkView.rightMargin = mMargin;
@@ -208,7 +210,8 @@ public class RecentLayout extends HorizontalScrollView implements View.OnClickLi
             f.setOnClickListener(this);
         }
         ImageView iv = new ImageView(mContext);
-        new Util.BitmapWorkerTask(iv, mViewDimension, mViewDimension).execute(drawableRes);
+//        new Util.BitmapWorkerTask(iv, mViewDimension, mViewDimension).execute(drawableRes); // will blink drawable
+        iv.setImageDrawable(getResources().getDrawable(drawableRes));   //  will not refresh drawable will cause memory leak
         iv.setMinimumWidth(mItemDimension);
         iv.setMinimumHeight(mItemDimension);
         LayoutParams lpImageView = new LayoutParams(mViewDimension, mViewDimension);
