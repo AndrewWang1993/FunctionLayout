@@ -5,7 +5,6 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
-import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.RelativeLayout;
@@ -37,7 +36,6 @@ public class MainActivity extends AppCompatActivity implements View.OnTouchListe
     protected void onResume() {
         HashMap<Integer, ArrayList<Object>> map = restoreRecentFunction();
         ArrayList<Integer> sortIndex = restoreFunctionSort();
-        Log.i("peoce", "restore   --->" + map.toString());
         if (map != null && sortIndex != null) {
             mRecentLayout.setData(map, sortIndex);
         } else {
